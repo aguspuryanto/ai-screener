@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Search, TrendingUp, BarChart3, AlertCircle, Filter, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, TrendingUp, BarChart3, AlertCircle, Filter, ArrowUp, ArrowDown, Info, X } from 'lucide-react';
 import { scoreStock } from '@/app/lib/ai';
 import { StockData } from '@/modules/screener/types';
 // import Table from '@/app/components/Table';
@@ -41,6 +41,7 @@ export default function StockScreenerDashboard() {
   const [filter, setFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedStock, setSelectedStock] = useState<StockData | null>(null);
 
   // useEffect(() => {
   //   // Simulasi fetch data dari output Python
@@ -87,11 +88,14 @@ export default function StockScreenerDashboard() {
 
   const getStatusBadge = (label: string) => {
     const styles = {
+      "STRONG BUY": "bg-emerald-100 text-emerald-700 border-emerald-200",
       "BUY": "bg-emerald-100 text-emerald-700 border-emerald-200",
+      "WATCHLIST": "bg-yellow-100 text-yellow-700 border-yellow-200",
       "HOLD": "bg-blue-100 text-blue-700 border-blue-200",
+      "AVOID": "bg-red-100 text-red-700 border-red-200",
       "CUT LOSS": "bg-red-100 text-red-700 border-red-200",
     };
-    return styles[label as keyof typeof styles] || "bg-gray-100";
+    return styles[label as keyof typeof styles] || "bg-gray-100 text-gray-700 border-gray-200";
   };
 
   if (loading)
@@ -199,6 +203,14 @@ export default function StockScreenerDashboard() {
                     <span className={`text-lg font-bold px-3 py-1 rounded-full ${getScoreColor(stock.ai.score)}`}>
                       {stock.ai.score}/100
                     </span>
+                    <button
+                      onClick={() => setSelectedStock(stock)}
+                      className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 transition-colors"
+                      title="View breakdown details"
+                    >
+                      <Info className="w-4 h-4" />
+                      info
+                    </button>
                   </div>
 
                   {/* Progress Bars for Factors */}
@@ -232,6 +244,14 @@ export default function StockScreenerDashboard() {
       <div className="max-w-7xl mx-auto mt-8 text-center text-slate-400 text-sm">
         <p>Data provided by Simulated IDX Feed • Updated: Just now</p>
       </div>
+
+      {/* Breakdown Detail Dialog */}
+      {selectedStock && (
+        <ScoreBreakdownDialog
+          stock={selectedStock}
+          onClose={() => setSelectedStock(null)}
+        />
+      )}
     </div>
   );
 }
@@ -249,6 +269,218 @@ const ScoreBar = ({ label, value, max, color }: { label: string, value: number, 
         />
       </div>
       <span className="w-8 text-right font-bold text-slate-700">{value}</span>
+    </div>
+  );
+}
+
+// Helper functions (moved outside component for reuse)
+const getScoreColorHelper = (score: number) => {
+  if (score >= 80) return "bg-emerald-500 text-white";
+  if (score >= 60) return "bg-blue-500 text-white";
+  if (score >= 40) return "bg-yellow-500 text-white";
+  return "bg-red-500 text-white";
+};
+
+const getStatusBadgeHelper = (label: string) => {
+  const styles = {
+    "STRONG BUY": "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "BUY": "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "WATCHLIST": "bg-yellow-100 text-yellow-700 border-yellow-200",
+    "HOLD": "bg-blue-100 text-blue-700 border-blue-200",
+    "AVOID": "bg-red-100 text-red-700 border-red-200",
+    "CUT LOSS": "bg-red-100 text-red-700 border-red-200",
+  };
+  return styles[label as keyof typeof styles] || "bg-gray-100 text-gray-700 border-gray-200";
+};
+
+// Score Breakdown Dialog Component
+const ScoreBreakdownDialog = ({ stock, onClose }: { stock: StockData, onClose: () => void }) => {
+  const { ai } = stock;
+  // Type assertion untuk mengakses breakdown detail
+  const aiDetails = ai as any;
+  const factorColors = {
+    trend: "bg-blue-500",
+    momentum: "bg-purple-500",
+    valuation: "bg-emerald-500",
+    volume: "bg-orange-500",
+    risk: "bg-red-500",
+  };
+
+  const factorLabels = {
+    trend: "Trend Score",
+    momentum: "Momentum Score",
+    valuation: "Valuation Score",
+    volume: "Volume & Demand Score",
+    risk: "Risk Score",
+  };
+
+  const factorDescriptions = {
+    trend: "Mengukur arah pergerakan harga berdasarkan return periodik",
+    momentum: "Mengukur kekuatan pergerakan harga dan volatilitas",
+    valuation: "Mengukur kelayakan harga berdasarkan fundamental",
+    volume: "Mengukur minat beli berdasarkan volume dan frekuensi transaksi",
+    risk: "Mengukur tingkat risiko berdasarkan beta dan volatilitas",
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Dialog Header */}
+        <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <BarChart3 className="w-6 h-6 text-emerald-600" />
+              Score Breakdown
+            </h2>
+            <div className="mt-2 flex items-center gap-3">
+              <span className="text-lg font-bold text-slate-800">{stock.Code}</span>
+              <span className="text-sm text-slate-500">{stock.Name}</span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Dialog Content */}
+        <div className="p-6 space-y-6">
+          {/* Total Score Summary */}
+          <div className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg p-6 border border-emerald-200">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-semibold text-slate-600">Total AI Score</span>
+              <span className={`text-3xl font-bold px-4 py-2 rounded-full ${getScoreColorHelper(ai.score)}`}>
+                {ai.score}/100
+              </span>
+            </div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-500">Status</span>
+                <span className={`text-sm font-bold px-3 py-1 rounded border ${getStatusBadgeHelper(ai.label)}`}>
+                  {ai.label}
+                </span>
+              </div>
+              <div className="h-3 bg-slate-200 rounded-full overflow-hidden mt-2">
+                <div 
+                  className={`h-full ${getScoreColorHelper(ai.score)} transition-all duration-500`}
+                  style={{ width: `${ai.score}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Factor Breakdown */}
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 mb-4">5 Faktor Analisis</h3>
+            <div className="space-y-4">
+              <FactorDetail
+                label={factorLabels.trend}
+                value={aiDetails.trendScore || 0}
+                max={20}
+                color={factorColors.trend}
+                description={factorDescriptions.trend}
+              />
+              <FactorDetail
+                label={factorLabels.momentum}
+                value={aiDetails.momentumScore || 0}
+                max={20}
+                color={factorColors.momentum}
+                description={factorDescriptions.momentum}
+              />
+              <FactorDetail
+                label={factorLabels.valuation}
+                value={aiDetails.valuationScore || 0}
+                max={20}
+                color={factorColors.valuation}
+                description={factorDescriptions.valuation}
+              />
+              <FactorDetail
+                label={factorLabels.volume}
+                value={aiDetails.volumeScore || 0}
+                max={20}
+                color={factorColors.volume}
+                description={factorDescriptions.volume}
+              />
+              <FactorDetail
+                label={factorLabels.risk}
+                value={aiDetails.riskScore || 0}
+                max={20}
+                color={factorColors.risk}
+                description={factorDescriptions.risk}
+              />
+            </div>
+          </div>
+
+          {/* Score Interpretation */}
+          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <h4 className="text-sm font-bold text-slate-700 mb-2">Interpretasi Score</h4>
+            <div className="text-xs text-slate-600 space-y-1">
+              <p>• <strong>85-100:</strong> STRONG BUY - Potensi kenaikan sangat tinggi</p>
+              <p>• <strong>70-84:</strong> BUY - Potensi kenaikan tinggi</p>
+              <p>• <strong>55-69:</strong> WATCHLIST - Perlu monitoring lebih lanjut</p>
+              <p>• <strong>40-54:</strong> HOLD - Pertahankan posisi</p>
+              <p>• <strong>&lt;40:</strong> AVOID - Risiko tinggi, hindari</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Dialog Footer */}
+        <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 p-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Factor Detail Component
+const FactorDetail = ({ 
+  label, 
+  value, 
+  max, 
+  color, 
+  description 
+}: { 
+  label: string, 
+  value: number, 
+  max: number, 
+  color: string,
+  description: string
+}) => {
+  const percentage = (value / max) * 100;
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex-1">
+          <h4 className="font-semibold text-slate-800 text-sm">{label}</h4>
+          <p className="text-xs text-slate-500 mt-1">{description}</p>
+        </div>
+        <div className="text-right ml-4">
+          <div className="text-2xl font-bold text-slate-800">{value}</div>
+          <div className="text-xs text-slate-500">/ {max}</div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div 
+            className={`h-full ${color} transition-all duration-500`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
