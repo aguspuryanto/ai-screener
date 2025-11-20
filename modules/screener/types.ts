@@ -25,6 +25,8 @@ export type StockData = {
   Per?: number;
   Pbr?: number;
   Roe?: number;
+  Volume?: number;
+  Value?: number;
   ai: { score: number; label: string };
   scores: ScoreDetails;
   indicators: Indicators;

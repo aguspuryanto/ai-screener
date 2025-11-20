@@ -37,7 +37,22 @@ import DashboardSkeleton from '@/app/components/DashboardSkeleton';
 //   }
 // ];
 
-const FILTER_OPTIONS = ["ALL", "STRONG BUY", "BUY", "WATCHLIST", "HOLD", "AVOID", "TOP GAINER"] as const;
+const FILTER_OPTIONS = ["ALL", "STRONG BUY", "BUY", "WATCHLIST", "HOLD", "AVOID", "TOP GAINER", "TOP VOLUME"] as const;
+
+// Helper function to format numbers (e.g., 13660 -> "13.66 K")
+const formatCompactNumber = (num: number | null | undefined): string => {
+  if (num === null || num === undefined || isNaN(num)) return '-';
+  
+  if (num >= 1_000_000_000) {
+    return (num / 1_000_000_000).toFixed(2) + ' B';
+  } else if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(2) + ' M';
+  } else if (num >= 1_000) {
+    return (num / 1_000).toFixed(2) + ' K';
+  } else {
+    return num.toFixed(2);
+  }
+};
 
 export default function StockScreenerDashboard() {
   const [stocks, setStocks] = useState<StockData[]>([]);
@@ -86,6 +101,8 @@ export default function StockScreenerDashboard() {
         matchFilter = true;
       } else if (filter === "TOP GAINER") {
         matchFilter = (stock.OneDay * 100) > 5;
+      } else if (filter === "TOP VOLUME") {
+        matchFilter = ((stock as any).Volume || 0) > 1_000_000; // Volume > 1 M
       } else {
         matchFilter = stock.ai.label === filter;
       }
@@ -96,6 +113,10 @@ export default function StockScreenerDashboard() {
       // Sort by DESC when filter is "TOP GAINER"
       if (filter === "TOP GAINER") {
         return (b.OneDay * 100) - (a.OneDay * 100);
+      }
+      // Sort by DESC when filter is "TOP VOLUME"
+      if (filter === "TOP VOLUME") {
+        return ((b as any).Volume || 0) - ((a as any).Volume || 0);
       }
       return 0; // No sorting for other filters
     });
@@ -193,23 +214,41 @@ export default function StockScreenerDashboard() {
               <div key={stock.Code} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden group">
                 
                 {/* Card Header */}
-                <div className="p-5 border-b border-slate-100 flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xl font-bold text-slate-800">{stock.Code}</span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusBadge(stock.ai.label)}`}>
-                        {stock.ai.label}
-                      </span>
+                <div className="p-5 border-b border-slate-100">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xl font-bold text-slate-800">{stock.Code}</span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusBadge(stock.ai.label)}`}>
+                          {stock.ai.label}
+                        </span>
+                      </div>
+                      <h3 className="text-sm text-slate-500 truncate max-w-[200px]" title={stock.Name}>{stock.Name}</h3>
                     </div>
-                    <h3 className="text-sm text-slate-500 truncate max-w-[200px]" title={stock.Name}>{stock.Name}</h3>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-slate-800">
+                        {stock.Last.toLocaleString('id-ID')}
+                      </div>
+                      <div className={`text-sm font-medium flex items-center justify-end gap-1 ${stock.OneDay >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {stock.OneDay >= 0 ? <ArrowUp className="w-3 h-3"/> : <ArrowDown className="w-3 h-3"/>}
+                        {(stock.OneDay * 100).toFixed(2)}%
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-slate-800">
-                      {stock.Last.toLocaleString('id-ID')}
+                  
+                  {/* Volume & Value Info */}
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                    <div className="flex-1">
+                      <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Volume</div>
+                      <div className="text-sm font-semibold text-slate-700">
+                        {formatCompactNumber((stock as any).Volume)}
+                      </div>
                     </div>
-                    <div className={`text-sm font-medium flex items-center justify-end gap-1 ${stock.OneDay >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {stock.OneDay >= 0 ? <ArrowUp className="w-3 h-3"/> : <ArrowDown className="w-3 h-3"/>}
-                      {(stock.OneDay * 100).toFixed(2)}%
+                    <div className="flex-1 text-right">
+                      <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Value</div>
+                      <div className="text-sm font-semibold text-slate-700">
+                        {formatCompactNumber((stock as any).Value) !== '-' ? `Rp ${formatCompactNumber((stock as any).Value)}` : '-'}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -241,15 +280,21 @@ export default function StockScreenerDashboard() {
                 <div className="p-4 bg-white border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
                   <div className="p-2 rounded bg-slate-50">
                     <div className="text-[10px] text-slate-400 uppercase tracking-wider">PER</div>
-                    <div className="font-bold text-sm text-slate-700">{stock.Per ?? '-'}</div>
+                    <div className="font-bold text-sm text-slate-700">
+                      {stock.Per !== null && stock.Per !== undefined ? stock.Per.toFixed(2) : '-'}
+                    </div>
                   </div>
                   <div className="p-2 rounded bg-slate-50">
                     <div className="text-[10px] text-slate-400 uppercase tracking-wider">PBR</div>
-                    <div className="font-bold text-sm text-slate-700">{stock.Pbr ?? '-'}</div>
+                    <div className="font-bold text-sm text-slate-700">
+                      {stock.Pbr !== null && stock.Pbr !== undefined ? stock.Pbr.toFixed(2) : '-'}
+                    </div>
                   </div>
                   <div className="p-2 rounded bg-slate-50">
                     <div className="text-[10px] text-slate-400 uppercase tracking-wider">ROE</div>
-                    <div className="font-bold text-sm text-slate-700">{stock.Roe ?? '-'}</div>
+                    <div className="font-bold text-sm text-slate-700">
+                      {stock.Roe !== null && stock.Roe !== undefined ? (stock.Roe * 100).toFixed(2) + '%' : '-'}
+                    </div>
                   </div>
                 </div>
 
@@ -285,6 +330,8 @@ export default function StockScreenerDashboard() {
                   ? stocks.length 
                   : f === "TOP GAINER"
                   ? stocks.filter(s => (s.OneDay * 100) > 5).length
+                  : f === "TOP VOLUME"
+                  ? stocks.filter(s => ((s as any).Volume || 0) > 1_000_000).length
                   : stocks.filter(s => s.ai.label === f).length;
                 
                 return (
@@ -374,6 +421,8 @@ export default function StockScreenerDashboard() {
                       ? stocks.length 
                       : f === "TOP GAINER"
                       ? stocks.filter(s => (s.OneDay * 100) > 5).length
+                  : f === "TOP VOLUME"
+                  ? stocks.filter(s => ((s as any).Volume || 0) > 1_000_000).length
                       : stocks.filter(s => s.ai.label === f).length;
                     
                     return (
