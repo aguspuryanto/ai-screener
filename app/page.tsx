@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, TrendingUp, BarChart3, AlertCircle, Filter, ArrowUp, ArrowDown, Info, X } from 'lucide-react';
 import { scoreStock } from '@/app/lib/ai';
 import { StockData } from '@/modules/screener/types';
+import DashboardSkeleton from '@/app/components/DashboardSkeleton';
 // import Table from '@/app/components/Table';
 
 // --- Mock Data Loader (In real app, fetch from API or JSON file) ---
@@ -36,12 +37,15 @@ import { StockData } from '@/modules/screener/types';
 //   }
 // ];
 
+const FILTER_OPTIONS = ["ALL", "STRONG BUY", "BUY", "WATCHLIST", "HOLD", "AVOID", "TOP GAINER"] as const;
+
 export default function StockScreenerDashboard() {
   const [stocks, setStocks] = useState<StockData[]>([]);
   const [filter, setFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedStock, setSelectedStock] = useState<StockData | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // useEffect(() => {
   //   // Simulasi fetch data dari output Python
@@ -72,12 +76,29 @@ export default function StockScreenerDashboard() {
     fetchStocks();
   }, []);
 
-  const filteredStocks = stocks.filter(stock => {
-    const matchSearch = stock.Code.toLowerCase().includes(search.toLowerCase()) || 
-                        stock.Name.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "ALL" ? true : stock.ai.label === filter;
-    return matchSearch && matchFilter;
-  });
+  const filteredStocks = stocks
+    .filter(stock => {
+      const matchSearch = stock.Code.toLowerCase().includes(search.toLowerCase()) || 
+                          stock.Name.toLowerCase().includes(search.toLowerCase());
+      
+      let matchFilter = true;
+      if (filter === "ALL") {
+        matchFilter = true;
+      } else if (filter === "TOP GAINER") {
+        matchFilter = (stock.OneDay * 100) > 5;
+      } else {
+        matchFilter = stock.ai.label === filter;
+      }
+      
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => {
+      // Sort by DESC when filter is "TOP GAINER"
+      if (filter === "TOP GAINER") {
+        return (b.OneDay * 100) - (a.OneDay * 100);
+      }
+      return 0; // No sorting for other filters
+    });
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "bg-emerald-500 text-white";
@@ -99,7 +120,7 @@ export default function StockScreenerDashboard() {
   };
 
   if (loading)
-    return <div className="p-6 text-lg font-medium">Loading data...</div>;
+    return <DashboardSkeleton />;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 p-4 md:p-8">
@@ -131,38 +152,35 @@ export default function StockScreenerDashboard() {
         </div>
       </div>
 
-      {/* Filters & Search */}
-      <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
-          <input 
-            type="text" 
-            placeholder="Search code (e.g., BBCA, ANTM)..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-          {["ALL", "STRONG BUY", "BUY", "WATCHLIST", "HOLD", "AVOID"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${
-                filter === f 
-                ? "bg-slate-800 text-white shadow-md" 
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+      {/* Search Bar & Filter */}
+      <div className="max-w-7xl mx-auto mb-6">
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
+            <input 
+              type="text" 
+              placeholder="Search code (e.g., BBCA, ANTM)..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium flex items-center gap-2 whitespace-nowrap shadow-sm"
+          >
+            <Filter className="w-5 h-5" />
+            <span>Filter</span>
+          </button>
         </div>
       </div>
 
-      {/* Content */}
-      {/* <Table stocks={filteredStocks} /> */}
-      <div className="max-w-7xl mx-auto">
+      {/* Main Content with Sidebar */}
+      <div className="max-w-7xl mx-auto flex gap-6 relative">
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {/* <Table stocks={filteredStocks} /> */}
+          <div>
         {loading ? (
           <div className="text-center py-20 text-slate-400">Loading AI Analysis...</div>
         ) : filteredStocks.length === 0 ? (
@@ -237,6 +255,183 @@ export default function StockScreenerDashboard() {
 
               </div>
             ))}
+          </div>
+        )}
+          </div>
+        </div>
+
+        {/* Right Sidebar - Filters */}
+        {sidebarOpen && (
+          <aside className="hidden lg:block w-80 flex-shrink-0">
+            <div className="sticky top-4 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Filter className="w-5 h-5 text-emerald-600" />
+                  Filter
+                </h2>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                  title="Close sidebar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Status</p>
+              {FILTER_OPTIONS.map((f) => {
+                const count = f === "ALL" 
+                  ? stocks.length 
+                  : f === "TOP GAINER"
+                  ? stocks.filter(s => (s.OneDay * 100) > 5).length
+                  : stocks.filter(s => s.ai.label === f).length;
+                
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`w-full text-left px-4 py-3 rounded-lg font-medium text-sm transition-all ${
+                      filter === f 
+                        ? "bg-slate-800 text-white shadow-md" 
+                        : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{f}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        filter === f 
+                          ? "bg-white/20 text-white" 
+                          : "bg-slate-200 text-slate-600"
+                      }`}>
+                        {count}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Stats Summary */}
+            <div className="mt-6 pt-6 border-t border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Summary</p>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600">Total Stocks</span>
+                  <span className="font-bold text-slate-800">{stocks.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600">Filtered</span>
+                  <span className="font-bold text-slate-800">{filteredStocks.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600">Strong Buy</span>
+                  <span className="font-bold text-emerald-600">
+                    {stocks.filter(s => s.ai.label === "STRONG BUY").length}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600">Buy</span>
+                  <span className="font-bold text-emerald-600">
+                    {stocks.filter(s => s.ai.label === "BUY").length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          </aside>
+        )}
+
+
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div 
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <aside 
+              className="absolute right-0 top-0 h-full w-80 bg-white shadow-2xl overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <Filter className="w-5 h-5 text-emerald-600" />
+                    Filter
+                  </h2>
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Status</p>
+                  {FILTER_OPTIONS.map((f) => {
+                    const count = f === "ALL" 
+                      ? stocks.length 
+                      : f === "TOP GAINER"
+                      ? stocks.filter(s => (s.OneDay * 100) > 5).length
+                      : stocks.filter(s => s.ai.label === f).length;
+                    
+                    return (
+                      <button
+                        key={f}
+                        onClick={() => {
+                          setFilter(f);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 rounded-lg font-medium text-sm transition-all ${
+                          filter === f 
+                            ? "bg-slate-800 text-white shadow-md" 
+                            : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{f}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            filter === f 
+                              ? "bg-white/20 text-white" 
+                              : "bg-slate-200 text-slate-600"
+                          }`}>
+                            {count}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Stats Summary */}
+                <div className="mt-6 pt-6 border-t border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Summary</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Total Stocks</span>
+                      <span className="font-bold text-slate-800">{stocks.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Filtered</span>
+                      <span className="font-bold text-slate-800">{filteredStocks.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Strong Buy</span>
+                      <span className="font-bold text-emerald-600">
+                        {stocks.filter(s => s.ai.label === "STRONG BUY").length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Buy</span>
+                      <span className="font-bold text-emerald-600">
+                        {stocks.filter(s => s.ai.label === "BUY").length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
         )}
       </div>
