@@ -144,7 +144,7 @@ export default function StockScreenerDashboard() {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-          {["ALL", "BUY", "HOLD", "CUT LOSS"].map((f) => (
+          {["ALL", "STRONG BUY", "BUY", "WATCHLIST", "HOLD", "AVOID"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
