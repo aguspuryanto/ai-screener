@@ -5,7 +5,7 @@ import path from "node:path";
 
 export async function GET() {
   const CACHE_FILE = path.join(process.cwd(), "public", "stocks.json");
-  const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+  const MAX_AGE_MS = 14 * 60 * 60 * 1000;
   try {
     try {
       const stat = await fs.stat(CACHE_FILE);
