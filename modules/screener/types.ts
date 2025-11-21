@@ -27,7 +27,15 @@ export type StockData = {
   Roe?: number;
   Volume?: number;
   Value?: number;
-  ai: { score: number; label: string };
+  ai: {
+    score: number;
+    label: string;
+    trendScore?: number;
+    momentumScore?: number;
+    valuationScore?: number;
+    volumeScore?: number;
+    riskScore?: number;
+  };
   scores: ScoreDetails;
   indicators: Indicators;
 

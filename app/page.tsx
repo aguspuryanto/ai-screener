@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Search, TrendingUp, BarChart3, AlertCircle, Filter, ArrowUp, ArrowDown, Info, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, TrendingUp, BarChart3, AlertCircle, Filter, ArrowUp, ArrowDown, Info, X, Link } from 'lucide-react';
 import { scoreStock } from '@/app/lib/ai';
 import { StockData } from '@/modules/screener/types';
 import DashboardSkeleton from '@/app/components/DashboardSkeleton';
@@ -54,6 +55,25 @@ const formatCompactNumber = (num: number | null | undefined): string => {
   }
 };
 
+const getScoreColor = (score: number) => {
+  if (score >= 80) return "bg-emerald-500 text-white";
+  if (score >= 60) return "bg-blue-500 text-white";
+  if (score >= 40) return "bg-yellow-500 text-white";
+  return "bg-red-500 text-white";
+};
+
+const getStatusBadge = (label: string) => {
+  const styles = {
+    "STRONG BUY": "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "BUY": "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "WATCHLIST": "bg-yellow-100 text-yellow-700 border-yellow-200",
+    "HOLD": "bg-blue-100 text-blue-700 border-blue-200",
+    "AVOID": "bg-red-100 text-red-700 border-red-200",
+    "CUT LOSS": "bg-red-100 text-red-700 border-red-200",
+  };
+  return styles[label as keyof typeof styles] || "bg-gray-100 text-gray-700 border-gray-200";
+};
+
 export default function StockScreenerDashboard() {
   const [stocks, setStocks] = useState<StockData[]>([]);
   const [filter, setFilter] = useState<string>("ALL");
@@ -102,7 +122,7 @@ export default function StockScreenerDashboard() {
       } else if (filter === "TOP GAINER") {
         matchFilter = (stock.OneDay * 100) > 5;
       } else if (filter === "TOP VOLUME") {
-        matchFilter = ((stock as any).Volume || 0) > 1_000_000; // Volume > 1 M
+        matchFilter = (stock.Volume || 0) > 1_000_000; // Volume > 1 M
       } else {
         matchFilter = stock.ai.label === filter;
       }
@@ -116,29 +136,10 @@ export default function StockScreenerDashboard() {
       }
       // Sort by DESC when filter is "TOP VOLUME"
       if (filter === "TOP VOLUME") {
-        return ((b as any).Volume || 0) - ((a as any).Volume || 0);
+        return (b.Volume || 0) - (a.Volume || 0);
       }
       return 0; // No sorting for other filters
     });
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "bg-emerald-500 text-white";
-    if (score >= 60) return "bg-blue-500 text-white";
-    if (score >= 40) return "bg-yellow-500 text-white";
-    return "bg-red-500 text-white";
-  };
-
-  const getStatusBadge = (label: string) => {
-    const styles = {
-      "STRONG BUY": "bg-emerald-100 text-emerald-700 border-emerald-200",
-      "BUY": "bg-emerald-100 text-emerald-700 border-emerald-200",
-      "WATCHLIST": "bg-yellow-100 text-yellow-700 border-yellow-200",
-      "HOLD": "bg-blue-100 text-blue-700 border-blue-200",
-      "AVOID": "bg-red-100 text-red-700 border-red-200",
-      "CUT LOSS": "bg-red-100 text-red-700 border-red-200",
-    };
-    return styles[label as keyof typeof styles] || "bg-gray-100 text-gray-700 border-gray-200";
-  };
 
   if (loading)
     return <DashboardSkeleton />;
@@ -211,94 +212,11 @@ export default function StockScreenerDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStocks.map((stock) => (
-              <div key={stock.Code} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden group">
-                
-                {/* Card Header */}
-                <div className="p-5 border-b border-slate-100">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xl font-bold text-slate-800">{stock.Code}</span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusBadge(stock.ai.label)}`}>
-                          {stock.ai.label}
-                        </span>
-                      </div>
-                      <h3 className="text-sm text-slate-500 truncate max-w-[200px]" title={stock.Name}>{stock.Name}</h3>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-slate-800">
-                        {stock.Last.toLocaleString('id-ID')}
-                      </div>
-                      <div className={`text-sm font-medium flex items-center justify-end gap-1 ${stock.OneDay >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {stock.OneDay >= 0 ? <ArrowUp className="w-3 h-3"/> : <ArrowDown className="w-3 h-3"/>}
-                        {(stock.OneDay * 100).toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Volume & Value Info */}
-                  <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                    <div className="flex-1">
-                      <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Volume</div>
-                      <div className="text-sm font-semibold text-slate-700">
-                        {formatCompactNumber((stock as any).Volume)}
-                      </div>
-                    </div>
-                    <div className="flex-1 text-right">
-                      <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Value</div>
-                      <div className="text-sm font-semibold text-slate-700">
-                        {formatCompactNumber((stock as any).Value) !== '-' ? `Rp ${formatCompactNumber((stock as any).Value)}` : '-'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Score Section */}
-                <div className="p-5 bg-slate-50/50">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-sm font-semibold text-slate-600">AI Probability Score</span>
-                    <span className={`text-lg font-bold px-3 py-1 rounded-full ${getScoreColor(stock.ai.score)}`}>
-                      {stock.ai.score}/100
-                    </span>
-                    <button
-                      onClick={() => setSelectedStock(stock)}
-                      className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 transition-colors"
-                      title="View breakdown details"
-                    >
-                      <Info className="w-4 h-4" />
-                      info
-                    </button>
-                  </div>
-
-                  {/* Progress Bars for Factors */}
-                  <div className="space-y-3">
-                    <ScoreBar label="Overall AI Score" value={stock.ai.score} max={100} color="bg-emerald-500" />
-                  </div>
-                </div>
-
-                {/* Technical Details */}
-                <div className="p-4 bg-white border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 rounded bg-slate-50">
-                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">PER</div>
-                    <div className="font-bold text-sm text-slate-700">
-                      {stock.Per !== null && stock.Per !== undefined ? stock.Per.toFixed(2) : '-'}
-                    </div>
-                  </div>
-                  <div className="p-2 rounded bg-slate-50">
-                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">PBR</div>
-                    <div className="font-bold text-sm text-slate-700">
-                      {stock.Pbr !== null && stock.Pbr !== undefined ? stock.Pbr.toFixed(2) : '-'}
-                    </div>
-                  </div>
-                  <div className="p-2 rounded bg-slate-50">
-                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">ROE</div>
-                    <div className="font-bold text-sm text-slate-700">
-                      {stock.Roe !== null && stock.Roe !== undefined ? (stock.Roe * 100).toFixed(2) + '%' : '-'}
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+              <CardStock
+                key={stock.Code}
+                stock={stock}
+                onShowDetails={() => setSelectedStock(stock)}
+              />
             ))}
           </div>
         )}
@@ -517,6 +435,128 @@ const ScoreBar = ({ label, value, max, color }: { label: string, value: number, 
   );
 }
 
+type CardStockProps = {
+  stock: StockData;
+  onShowDetails: () => void;
+};
+
+const CardStock = ({ stock, onShowDetails }: CardStockProps) => {
+  const router = useRouter();
+
+  const handleCardClick = () => {
+    router.push(`/idx/symbol/${stock.Code}`);
+  };
+
+  const handleInfoClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    onShowDetails();
+  };
+
+  return (
+    <div
+      onClick={handleCardClick}
+      className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden group cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+    >
+      {/* Card Header */}
+      <div className="p-5 border-b border-slate-100">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl font-bold text-slate-800">{stock.Code}</span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusBadge(stock.ai.label)}`}>
+                {stock.ai.label}
+              </span>
+            </div>
+            <h3 className="text-sm text-slate-500 truncate max-w-[200px]" title={stock.Name}>
+              {stock.Name}
+            </h3>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-bold text-slate-800">{stock.Last.toLocaleString("id-ID")}</div>
+            <div
+              className={`text-sm font-medium flex items-center justify-end gap-1 ${
+                stock.OneDay >= 0 ? "text-emerald-600" : "text-red-600"
+              }`}
+            >
+              {stock.OneDay >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+              {(stock.OneDay * 100).toFixed(2)}%
+            </div>
+          </div>
+        </div>
+
+        {/* Volume & Value Info */}
+        <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+          <div className="flex-1">
+            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Volume</div>
+            <div className="text-sm font-semibold text-slate-700">
+              {formatCompactNumber(stock.Volume)}
+            </div>
+          </div>
+          <div className="flex-1 text-right">
+            <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Value</div>
+            <div className="text-sm font-semibold text-slate-700">
+              {formatCompactNumber(stock.Value) !== "-" ? `Rp ${formatCompactNumber(stock.Value)}` : "-"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Score Section */}
+      <div className="p-5 bg-slate-50/50">
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-sm font-semibold text-slate-600">AI Probability Score</span>
+          <span className={`text-lg font-bold px-3 py-1 rounded-full ${getScoreColor(stock.ai.score)}`}>
+            {stock.ai.score}/100
+          </span>
+          <button
+            onClick={handleInfoClick}
+            className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 transition-colors"
+            title="View breakdown details"
+          >
+            <Info className="w-4 h-4" />
+            info
+          </button>
+        </div>
+
+        {/* Progress Bars for Factors */}
+        <div className="space-y-3">
+          <ScoreBar label="Overall AI Score" value={stock.ai.score} max={100} color="bg-emerald-500" />
+        </div>
+      </div>
+
+      {/* Technical Details */}
+      <div className="p-4 bg-white border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+        <div className="p-2 rounded bg-slate-50">
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider">PER</div>
+          <div className="font-bold text-sm text-slate-700">
+            {stock.Per !== null && stock.Per !== undefined ? stock.Per.toFixed(2) : "-"}
+          </div>
+        </div>
+        <div className="p-2 rounded bg-slate-50">
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider">PBR</div>
+          <div className="font-bold text-sm text-slate-700">
+            {stock.Pbr !== null && stock.Pbr !== undefined ? stock.Pbr.toFixed(2) : "-"}
+          </div>
+        </div>
+        <div className="p-2 rounded bg-slate-50">
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider">ROE</div>
+          <div className="font-bold text-sm text-slate-700">
+            {stock.Roe !== null && stock.Roe !== undefined ? (stock.Roe * 100).toFixed(2) + "%" : "-"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Helper functions (moved outside component for reuse)
 const getScoreColorHelper = (score: number) => {
   if (score >= 80) return "bg-emerald-500 text-white";
@@ -540,8 +580,7 @@ const getStatusBadgeHelper = (label: string) => {
 // Score Breakdown Dialog Component
 const ScoreBreakdownDialog = ({ stock, onClose }: { stock: StockData, onClose: () => void }) => {
   const { ai } = stock;
-  // Type assertion untuk mengakses breakdown detail
-  const aiDetails = ai as any;
+  const aiDetails = ai;
   const factorColors = {
     trend: "bg-blue-500",
     momentum: "bg-purple-500",
