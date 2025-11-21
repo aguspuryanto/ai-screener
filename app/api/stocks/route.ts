@@ -4,7 +4,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export async function GET() {
-  const CACHE_FILE = path.join(process.cwd(), "public", "stocks.json");
+  const PATH_DATA = "public/data";
+  const CURR_DATE = new Date().toISOString().slice(0, 10);
+  const CACHE_FILE = path.join(process.cwd(), PATH_DATA, `stocks_${CURR_DATE}.json`);
   const MAX_AGE_MS = 14 * 60 * 60 * 1000;
   try {
     try {
@@ -30,7 +32,7 @@ export async function GET() {
   } catch (error) {
     try {
       const cached = JSON.parse(
-        await fs.readFile(path.join(process.cwd(), "public", "stocks.json"), "utf-8")
+        await fs.readFile(CACHE_FILE, "utf-8")
       );
       return NextResponse.json({ success: true, data: cached.data });
     } catch {
