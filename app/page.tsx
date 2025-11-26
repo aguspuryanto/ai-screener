@@ -6,6 +6,9 @@ import { scoreStock } from '@/app/lib/ai';
 import { StockData } from '@/modules/screener/types';
 import DashboardSkeleton from '@/app/components/DashboardSkeleton';
 // import Table from '@/app/components/Table';
+import Link from 'next/link';
+
+
 
 // --- Mock Data Loader (In real app, fetch from API or JSON file) ---
 // Because we can't run python in browser, I will seed some mock data based on the Python logic output structure
@@ -212,7 +215,7 @@ export default function StockScreenerDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStocks.map((stock) => (
               <div key={stock.Code} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden group">
-                
+                <Link href={`/detail/${stock.Code}`} className="block">
                 {/* Card Header */}
                 <div className="p-5 border-b border-slate-100">
                   <div className="flex justify-between items-start mb-3">
@@ -297,6 +300,7 @@ export default function StockScreenerDashboard() {
                     </div>
                   </div>
                 </div>
+                </Link>
 
               </div>
             ))}
