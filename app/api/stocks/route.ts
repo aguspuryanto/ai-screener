@@ -22,7 +22,13 @@ export async function GET() {
         const stat = await fs.stat(CACHE_FILE);
         if (Date.now() - stat.mtimeMs < MAX_AGE_MS) {
           const cached = JSON.parse(await fs.readFile(CACHE_FILE, "utf-8"));
-          return NextResponse.json({ success: true, data: cached.data, fromCache: true });
+          // return NextResponse.json({ success: true, data: cached.data, fromCache: true });
+          return NextResponse.json({ 
+            success: true, 
+            data: cached.data, 
+            fromCache: true,
+            updatedAt: cached.savedAt
+          });
         }
       } catch {}
     }
@@ -55,7 +61,12 @@ export async function GET() {
         console.error('Failed to save cache file:', error);
       }
     }
-    return NextResponse.json({ success: true, data, fromCache: false });
+    return NextResponse.json({
+      success: true, 
+      data, 
+      fromCache: false, 
+      updatedAt: new Date().toISOString() 
+    });
     
   } catch (error) {
     console.error('Error fetching stocks:', error);
